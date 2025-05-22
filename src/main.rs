@@ -5,19 +5,23 @@ use std::error;
 
 fn write_n_rows(client: &mut Client, table: &str, count: i32) -> Result<(), Box<dyn error::Error>> {
     assert!(count > 0, "Count must be greater than 0");
-    
-    let query = format!(
-        "CREATE TABLE IF NOT EXISTS {}(id SERIAL PRIMARY KEY, name TEXT NOT NULL, value REAL);",
-        table
-    );
+
+    println!("Dropping table {table} if exists...");
+    let query = format!("DROP TABLE IF EXISTS {table};");
     client.execute(&query, &[])?;
 
+    println!("Creating table {table}...");
+    let query =
+        format!("CREATE TABLE {table}(id SERIAL PRIMARY KEY, name TEXT NOT NULL, value REAL);");
+    client.execute(&query, &[])?;
+
+    println!("Inserting {count} values into {table}...");
     let query = format!(
-        "INSERT INTO {}(name, value) SELECT LEFT(md5(i::TEXT), 10), random() FROM generate_series(1, $1) s(i);",
-        table
+        "INSERT INTO {table}(name, value) SELECT LEFT(md5(i::TEXT), 10), random() FROM generate_series(1, $1) s(i);"
     );
     client.execute(&query, &[&count])?;
 
+    println!("Inserted {count} rows into table {table}.");
     Ok(())
 }
 
@@ -28,9 +32,12 @@ struct NeonResponse {
     value: f32,
 }
 
-fn make_read_query(client: &mut Client, table: &str) -> Result<Vec<NeonResponse>, Box<dyn error::Error>> {
+fn make_read_query(
+    client: &mut Client,
+    table: &str,
+) -> Result<Vec<NeonResponse>, Box<dyn error::Error>> {
     let mut ret = Vec::<NeonResponse>::new();
-    let query = format!("SELECT * FROM {};", table);
+    let query = format!("SELECT * FROM {table};");
     for row in client.query(&query, &[])? {
         ret.push(NeonResponse {
             id: row.get(0),
@@ -42,7 +49,9 @@ fn make_read_query(client: &mut Client, table: &str) -> Result<Vec<NeonResponse>
 }
 
 fn main() -> Result<(), Box<dyn error::Error>> {
-    let mode = std::env::args().nth(1).unwrap_or_else(|| "read".to_string());
+    let mode = std::env::args()
+        .nth(1)
+        .unwrap_or_else(|| "read".to_string());
     let neon_username =
         std::env::var("NEON_USERNAME").unwrap_or_else(|_| "neondb_owner".to_string());
     let neon_password =
@@ -71,7 +80,7 @@ fn main() -> Result<(), Box<dyn error::Error>> {
         }
         "write" => {
             println!("Running in write mode");
-            write_n_rows(&mut client, &table, 1000)?;
+            write_n_rows(&mut client, &table, 300000)?;
         }
         _ => {
             println!("Invalid mode. Use 'read' or 'write'.");
