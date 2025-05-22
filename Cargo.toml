@@ -1,0 +1,9 @@
+[package]
+name = "measure-neon-startup-time"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+openssl = "0.10.72"
+postgres = "0.19.10"
+postgres-openssl = "0.5.1"
